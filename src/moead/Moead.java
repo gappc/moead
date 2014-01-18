@@ -2,7 +2,6 @@ package moead;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
@@ -17,7 +16,9 @@ public class Moead {
 		double[][] weightVectors = Initializer.generateWeightVectors(N);
 		
 		// 1.1
-		List<List<Double>> EP = new ArrayList<List<Double>>(); // external population
+		// Dosen't work as expected, so was commented out
+		// Instead full list is returned
+		//List<List<Double>> EP = new ArrayList<List<Double>>(); // external population
 		// 1.2
 		int[][] B = Initializer.getNeighbors(weightVectors, neighborSize); // neighbors
 		// 1.3
@@ -26,12 +27,10 @@ public class Moead {
 		// 1.4
 		double[] z = Initializer.getReferencePoint(functionValues); // reference point
 
-		initMinMax(functionValues);
-		updateFunctionValues(functionValues, weightVectors, z);
-		
 		int count = 0;
 		boolean end = false;
 		while (!end) {
+			updateMinMax(functionValues);
 			for (int i = 0; i < N; i++) {
 				// 2.1
 				double[] y = reproduce(population, B[i], i);
@@ -41,9 +40,10 @@ public class Moead {
 				// 2.4
 				updateNeighborhood(population, functionValues, B[i], weightVectors, z, y);
 				// 2.5
-				updateEP(EP, y, weightVectors[i], z);
+//				Dosen't work as expected, so was commented out
+//				updateEP(EP, y, weightVectors[i], z);
 			}
-
+			
 			if (count % 100 == 0) {
 				System.out.println(count);
 			}
@@ -52,29 +52,37 @@ public class Moead {
 			}
 		}
 
-//		System.out.println(EP);
 		List<List<Double>> result = new ArrayList<List<Double>>();
 		for (int i = 0; i < functionValues.length; i++) {
 			List<Double> l = new ArrayList<Double>();
-			l.add(functionValues[i][0]);
-			l.add(functionValues[i][1]);
+			double val1 = (functionValues[i][0] - z[0]) / (maxF1 - minF1);
+			double val2 = (functionValues[i][1] - z[1]) / (maxF2 - minF2);
+			l.add(val1);
+			l.add(val2);
 			result.add(l);
-			System.out.println(l);
+			System.out.println(functionValues[i][0] + " " + functionValues[i][1]);
 		}
-		return EP;
 		
-//		return result;
+		return result;
+		
+//		for (List<Double> l : EP) {
+//			double val1 = l.get(0);
+//			double val2 = l.get(1);
+//			double weightVector1 = l.get(2);
+//			double weightVector2 = l.get(3);
+//			
+//			val1 = (val1 - z[0]) / (maxF1 - minF1);
+//			val2 = (val2 - z[1]) / (maxF2 - minF2);
+//			
+//			l.set(0, val1);
+//			l.set(1, val2);
+//			l.remove(3);
+//			l.remove(2);
+//		}
+//		return EP;
 	}
 
-	private void updateFunctionValues(double[][] functionValues,
-			double[][] weightVectors, double[] z) {
-		for (int i = 0; i < functionValues.length; i++) {
-			functionValues[i][0] = (functionValues[i][0] - z[0]) / (maxF1 - minF1) * weightVectors[i][0];
-			functionValues[i][1] = (functionValues[i][1] - z[1]) / (maxF2 - minF2) * weightVectors[i][1];
-		}
-	}
-	
-	private void initMinMax(double[][] functionValues) {
+	private void updateMinMax(double[][] functionValues) {
 		List<Double> f1Values = new ArrayList<Double>();
 		List<Double> f2Values = new ArrayList<Double>();
 		for (int i = 0; i < functionValues.length; i++) {
@@ -114,11 +122,6 @@ public class Moead {
 		double f2Value = Functions.f2(y);
 		z[0] = Math.min(z[0], f1Value);
 		z[1] = Math.min(z[1], f2Value);
-		
-		minF1 = Math.min(minF1, f1Value);
-		maxF1 = Math.max(maxF1, f1Value);
-		minF2 = Math.min(minF2, f2Value);
-		maxF2 = Math.max(maxF2, f2Value);
 	}
 
 	private void updateNeighborhood(double[][] population,
@@ -131,65 +134,70 @@ public class Moead {
 		for (int i = 0; i < neighbors.length; i++) {
 			int index = neighbors[i];
 
-			double gNeighbor = Math.max(functionValues[index][0], functionValues[index][1]);//computeMinCombinedValues(neighbor1Val, neighbor2Val, weightVectors[index], z);
-//			double gNeighbor = functionValues[index][0] + functionValues[index][1];
-			double gY = computeMinCombinedValues(y1Val, y2Val, weightVectors[index], z);
+			double gNeighbor = computeMaxCombinedValues(functionValues[index][0], functionValues[index][1], weightVectors[index], z);
+			double gY = computeMaxCombinedValues(y1Val, y2Val, weightVectors[index], z);
 			if (gY <= gNeighbor) {
 				population[index] = y;
-				functionValues[index][0] = (y1Val - z[0]) / (maxF1 - minF1) * weightVectors[index][0];
-				functionValues[index][1] = (y2Val - z[1]) / (maxF2 - minF2) * weightVectors[index][1];
+				functionValues[index][0] = y1Val;
+				functionValues[index][1] = y2Val;
 			}
 		}
 	}
 	
-	private double computeMinCombinedValues(double f1Val, double f2Val, double[] weightVector,
+	private double computeMaxCombinedValues(double f1Val, double f2Val, double[] weightVector,
 			double[] z) {
+//		First possibility: use max
 		return Math.max(
 				(f1Val - z[0]) / (maxF1 - minF1) * weightVector[0],
 				(f2Val - z[1]) / (maxF2 - minF2) * weightVector[1]);
+//		Second possibility: don't use max but instead addition
+//		return ((f1Val - z[0]) / (maxF1 - minF1) * weightVector[0]) + ((f2Val - z[1]) / (maxF2 - minF2) * weightVector[1]);
 	}
 
-	private void updateEP(List<List<Double>> EP, double[] y, double[] weightVector, double[] z) {
-		// remove all vectors dominated by F(y)
-		// check if any vector in EP dominates F(y)
-		double f1Val = (Functions.f1(y) - z[0]) / (maxF1 - minF1) * weightVector[0];
-		double f2Val = (Functions.f2(y) - z[1]) / (maxF2 - minF2) * weightVector[1];
-		boolean yIsDominated = false;
-		for (Iterator<List<Double>> it = EP.iterator(); it.hasNext();) {
-			List<Double> epVector = it.next();
-
-			double[] yValue = new double[2];
-			yValue[0] = f1Val; 
-			yValue[1] = f2Val;
-
-			double[] epValue = new double[2];
-			epValue[0] = epVector.get(0);
-			epValue[1] = epVector.get(1);
-
-			if (dominates(yValue, epValue)) {
-				it.remove();
-			}
-			if (dominates(epValue, yValue)) {
-				yIsDominated = true;
-			}
-			if (yValue[0] == epValue[0] && yValue[1] == epValue[1]) {
-				yIsDominated = true;
-			}
-		}
-		if (!yIsDominated) {
-			List<Double> newExternal = new ArrayList<Double>();
-			newExternal.add(f1Val);
-			newExternal.add(f2Val);
-			EP.add(newExternal);
-		}
-	}
-
-	/**
-	 * @param a
-	 * @return true if a dominates b
-	 */
-	private boolean dominates(double[] a, double[] b) {
-		return (a[0] >= b[0] && a[1] >= b[1]) && (a[0] > b[0] || a[1] > b[1]);
-	}
+//	Dosen't work as expected, so was commented out
+//	private void updateEP(List<List<Double>> EP, double[] y, double[] weightVector, double[] z) {
+//		// remove all vectors dominated by F(y)
+//		// check if any vector in EP dominates F(y)
+//		double f1Val = Functions.f1(y);
+//		double f2Val = Functions.f2(y);
+//		boolean yIsDominated = false;
+//		for (Iterator<List<Double>> it = EP.iterator(); it.hasNext();) {
+//			List<Double> epVector = it.next();
+//
+//			double[] yValue = new double[2];
+//			yValue[0] = f1Val;
+//			yValue[1] = f2Val;
+//
+//			double[] epValue = new double[2];
+//			epValue[0] = epVector.get(0);
+//			epValue[1] = epVector.get(1);
+//
+//			if (dominates(yValue, epValue)) {
+//				it.remove();
+//			}
+//			if (dominates(epValue, yValue)) {
+//				yIsDominated = true;
+//			}
+//			if (yValue[0] == epValue[0] && yValue[1] == epValue[1]) {
+//				yIsDominated = true;
+//			}
+//		}
+//		if (!yIsDominated) {
+//			List<Double> newExternal = new ArrayList<Double>();
+//			newExternal.add(f1Val);
+//			newExternal.add(f2Val);
+//			newExternal.add(weightVector[0]);
+//			newExternal.add(weightVector[1]);
+//			EP.add(newExternal);
+//		}
+//	}
+//
+//	/**
+//	 * @param a
+//	 * @return true if a dominates b
+//	 */
+//	private boolean dominates(double[] a, double[] b) {
+//		return (a[0] <= b[0] && a[1] <= b[1]) && (a[0] < b[0] || a[1] < b[1]);
+//	}
 
 }
